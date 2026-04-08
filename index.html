@@ -2,191 +2,193 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hệ thống Kiểm Biểu quyết</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thẩm định khách hàng vay vốn</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; margin: 0; padding: 8px; color: #333; }
-        .container { max-width: 500px; margin: auto; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 10px; }
-        .block-title { background: #e7f3ff; color: #1a73e8; padding: 8px; border-radius: 6px; font-weight: bold; margin: 15px 0 10px 0; text-align: center; border: 1px solid #1a73e8; }
-        
-        /* Login Overlay */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        
-        /* QR Scanner */
-        #reader { width: 100%; max-width: 250px; margin: 10px auto; border-radius: 10px; overflow: hidden; background: #000; border: 2px solid #1a73e8; aspect-ratio: 1; }
-        .qr-status { display: block; margin: 10px 0; font-weight: bold; color: #d32f2f; text-align: center; }
-        .blink { animation: blinker 0.6s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
-
-        /* Candidate UI */
-        .candidate-item { border-bottom: 1px solid #eee; padding: 12px 0; }
-        .name { font-weight: bold; display: block; margin-bottom: 8px; }
-        .btn-group { display: flex; gap: 8px; }
-        .opt-btn { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-weight: bold; cursor: pointer; }
-        .active-y { background: #2e7d32 !important; color: white !important; border-color: #2e7d32; }
-        .active-n { background: #c62828 !important; color: white !important; border-color: #c62828; }
-
-        .btn-main { background: #1a73e8; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-        .btn-save { background: #ccc; cursor: not-allowed; margin-top: 15px; }
-        .btn-save.ready { background: #28a745 !important; cursor: pointer; }
+        :root {
+            --primary-bg: #e3f2fd; /* Xanh nhạt chống chói */
+            --header-color: #1565c0;
+            --section-bg: #ffffff;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--primary-bg);
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+        h2 { text-align: center; color: var(--header-color); margin-bottom: 20px; }
+        .section {
+            background: var(--section-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .section h3 {
+            border-left: 4px solid var(--header-color);
+            padding-left: 10px;
+            color: var(--header-color);
+            margin-top: 0;
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .map-container { height: 250px; width: 100%; border-radius: 8px; border: 1px solid #ccc; margin-top: 5px; }
+        .btn-submit {
+            background-color: var(--header-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            width: 100%;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-submit:hover { background-color: #0d47a1; }
+        .preview-img { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .preview-img img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
-<div id="login-overlay">
-    <div class="card" style="width: 100%; max-width: 350px; text-align: center;">
-        <h2 style="color: #1a73e8;">ĐĂNG NHẬP</h2>
-        <input type="email" id="login-email" placeholder="Email của bạn">
-        <input type="password" id="login-pass" placeholder="Mật khẩu">
-        <button class="btn-main" onclick="checkLogin()" id="btn-login-submit">XÁC NHẬN</button>
-        <p id="login-error" style="color: red; display: none; margin-top: 10px;">Sai thông tin đăng nhập!</p>
-    </div>
-</div>
+    <h2>PHIẾU THẨM ĐỊNH VAY VỐN</h2>
 
-<div class="container">
-    <div class="card" style="text-align: center;">
-        <p id="user-display" style="font-weight: bold; color: #555;"></p>
-        <button id="btn-scan" class="btn-main" onclick="startCamera()">BẬT CAMERA QUÉT MÃ</button>
-        <div id="reader"></div>
-        <span id="qr-status" class="qr-status">Chờ quét mã QR...</span>
-        
-        <button id="btn-save" class="btn-main btn-save" disabled onclick="submitToGoogle()">LƯU PHIẾU BẦU</button>
-    </div>
-
-    <div class="card">
-        <div class="block-title">I. BẦU CHỦ TỊCH HĐQT</div>
-        <div class="candidate-item">
-            <span class="name">1. Trần Thị Hải Vân</span>
-            <div class="btn-group">
-                <button id="ct-y" class="opt-btn active-y" onclick="selectChoice('ct','Đồng ý')">Đồng ý</button>
-                <button id="ct-n" class="opt-btn" onclick="selectChoice('ct','Không đồng ý')">Không đồng ý</button>
+    <form id="appraisalForm">
+        <div class="section">
+            <h3>I. Thông tin chung về khách hàng</h3>
+            <div class="form-group">
+                <label>Quét/Chụp CCCD (Vợ & Chồng):</label>
+                <input type="file" accept="image/*" multiple id="cccd_input">
+                <p style="font-size: 12px; color: #666;">* Hệ thống sẽ lưu ảnh để tách thông tin sau.</p>
+            </div>
+            <div class="form-group">
+                <label>Họ tên khách hàng:</label>
+                <input type="text" name="customer_name" required>
+            </div>
+            <div class="form-group">
+                <label>Vị trí nhà ở (Chấm trên bản đồ):</label>
+                <div id="map_home" class="map-container"></div>
+                <input type="hidden" name="home_coords" id="home_coords">
+            </div>
+            <div class="form-group">
+                <label>Chụp ảnh nhà ở (Nhiều ảnh):</label>
+                <input type="file" accept="image/*" multiple name="home_photos">
             </div>
         </div>
 
-        <div class="block-title">II. BẦU TRƯỞNG BAN KIỂM SOÁT</div>
-        <div class="candidate-item">
-            <span class="name">1. Trần Biên Thùy</span>
-            <div class="btn-group">
-                <button id="tbks-y" class="opt-btn active-y" onclick="selectChoice('tbks','Đồng ý')">Đồng ý</button>
-                <button id="tbks-n" class="opt-btn" onclick="selectChoice('tbks','Không đồng ý')">Không đồng ý</button>
+        <div class="section">
+            <h3>II. Nhu cầu vay vốn</h3>
+            <div class="form-group">
+                <label>Tổng nhu cầu vốn:</label>
+                <input type="number" name="total_need" id="total_need">
+            </div>
+            <div class="form-group">
+                <label>Vốn tự có:</label>
+                <input type="number" name="own_capital" id="own_capital">
+            </div>
+            <div class="form-group">
+                <label>Vốn vay đề nghị:</label>
+                <input type="number" name="loan_amount" id="loan_amount" style="background: #eee;" readonly>
+            </div>
+            <div class="form-group">
+                <label>Mục đích vay:</label>
+                <textarea name="purpose" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Vị trí dự án:</label>
+                <div id="map_project" class="map-container"></div>
+                <input type="hidden" name="project_coords" id="project_coords">
+            </div>
+            <div class="form-group">
+                <label>Chụp ảnh nơi dự án:</label>
+                <input type="file" accept="image/*" multiple name="project_photos">
+            </div>
+            <div class="form-group">
+                <label>Thời hạn vay (tháng):</label>
+                <input type="number" name="duration">
             </div>
         </div>
-    </div>
-</div>
 
-<script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZ1K9dhOUqDcAdLXiA0tahHrNmiOlWtr13J1kzTtEbbQpwsZAH_92ypU0-x8M0nXt82Q/exec";
-    
-    let currentUserEmail = "";
-    let formData = { 
-        email: "", qr: "", 
-        ct: "Đồng ý", 
-        tbks: "Đồng ý"
-    };
-    let html5QrCode;
+        <div class="section">
+            <h3>III. Thông tin tài sản đảm bảo</h3>
+            <div class="form-group">
+                <label>Loại tài sản:</label>
+                <select name="asset_type" id="asset_type">
+                    <option value="Giấy chứng nhận QSD đất">Thế chấp QSD đất</option>
+                    <option value="Không có tài sản">Không có tài sản</option>
+                </select>
+            </div>
+            <div id="asset_detail_section">
+                <div class="form-group">
+                    <label>Vị trí TSĐB (Chấm bản đồ):</label>
+                    <div id="map_asset" class="map-container"></div>
+                    <input type="hidden" name="asset_coords" id="asset_coords">
+                </div>
+                <div class="form-group">
+                    <label>Chụp ảnh tài sản (Nhiều ảnh):</label>
+                    <input type="file" accept="image/*" multiple name="asset_photos">
+                </div>
+            </div>
+        </div>
 
-    async function checkLogin() {
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-pass').value;
-        const btn = document.getElementById('btn-login-submit');
-        const errorMsg = document.getElementById('login-error');
-        if (!email || !pass) { alert("Vui lòng nhập đầy đủ!"); return; }
-        btn.innerText = "⏳ ĐANG KIỂM TRA...";
-        btn.disabled = true;
-        try {
-            const response = await fetch(`${SCRIPT_URL}?action=login&email=${email}&pass=${pass}`);
-            const result = await response.json();
-            if (result.status === "success") {
-                currentUserEmail = email;
-                document.getElementById('user-display').innerText = "Người dùng: " + email;
-                document.getElementById('login-overlay').style.display = 'none';
-            } else {
-                errorMsg.style.display = 'block';
-                btn.innerText = "XÁC NHẬN";
-                btn.disabled = false;
-            }
-        } catch (err) {
-            alert("Lỗi kết nối máy chủ Google!");
-            btn.disabled = false;
-            btn.innerText = "XÁC NHẬN";
+        <button type="submit" class="btn-submit">LƯU DỮ LIỆU THẨM ĐỊNH</button>
+    </form>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Tự động tính vốn vay
+        const totalNeed = document.getElementById('total_need');
+        const ownCap = document.getElementById('own_capital');
+        const loanAmt = document.getElementById('loan_amount');
+        [totalNeed, ownCap].forEach(el => el.addEventListener('input', () => {
+            loanAmt.value = (totalNeed.value || 0) - (ownCap.value || 0);
+        }));
+
+        // 2. Khởi tạo bản đồ (Hàm chung)
+        function initMap(mapId, inputId) {
+            const map = L.map(mapId).setView([17.067, 107.031], 13); // Mặc định Hồ Xá, Quảng Trị
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            let marker;
+            map.on('click', function(e) {
+                if (marker) map.removeLayer(marker);
+                marker = L.marker(e.latlng).addTo(map);
+                document.getElementById(inputId).value = `${e.latlng.lat}, ${e.latlng.lng}`;
+            });
         }
-    }
+        initMap('map_home', 'home_coords');
+        initMap('map_project', 'project_coords');
+        initMap('map_asset', 'asset_coords');
 
-    async function startCamera() {
-        const scanBtn = document.getElementById('btn-scan');
-        scanBtn.innerText = "🔄 Đang khởi động...";
-        try {
-            html5QrCode = new Html5Qrcode("reader");
-            await html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 20, qrbox: 200 },
-                (qrText) => {
-                    if (formData.qr !== qrText) {
-                        formData.qr = qrText;
-                        const status = document.getElementById('qr-status');
-                        const saveBtn = document.getElementById('btn-save');
-                        status.innerText = "✅ ĐÃ QUÉT: " + qrText;
-                        status.style.color = "#2e7d32";
-                        status.classList.add("blink");
-                        saveBtn.disabled = false;
-                        saveBtn.classList.add("ready");
-                        if (navigator.vibrate) navigator.vibrate(100);
-                    }
-                }
-            );
-            scanBtn.style.display = 'none';
-        } catch (err) {
-            alert("Lỗi Camera: " + err);
-            scanBtn.innerText = "THỬ LẠI";
-        }
-    }
-
-    function selectChoice(id, val) {
-        formData[id] = val;
-        const isYes = (val === 'Đồng ý');
-        document.getElementById(id + '-y').className = isYes ? 'opt-btn active-y' : 'opt-btn';
-        document.getElementById(id + '-n').className = isYes ? 'opt-btn' : 'opt-btn active-n';
-    }
-
-    function resetChoices() {
-        // Reset về mặc định cho 2 vị trí mới
-        selectChoice('ct', 'Đồng ý');
-        selectChoice('tbks', 'Đồng ý');
-    }
-
-    function submitToGoogle() {
-        const btn = document.getElementById('btn-save');
-        const status = document.getElementById('qr-status');
-        if(btn.disabled) return;
-        formData.email = currentUserEmail;
-        btn.innerText = "⏳ ĐANG LƯU...";
-        btn.disabled = true;
-
-        fetch(SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify(formData),
-            headers: { "Content-Type": "text/plain;charset=utf-8" }
-        })
-        .then(() => {
-            alert("🎉 Đã lưu phiếu thành công!");
-            formData.qr = "";
-            status.innerText = "Chờ quét mã QR...";
-            status.style.color = "#d32f2f";
-            status.classList.remove("blink");
-            btn.innerText = "LƯU PHIẾU BẦU";
-            btn.classList.remove("ready");
-            btn.disabled = true;
-            resetChoices();
-        })
-        .catch(err => {
-            alert("Lỗi lưu phiếu: " + err);
-            btn.disabled = false;
-            btn.innerText = "LƯU PHIẾU BẦU";
+        // 3. Xử lý ẩn hiện phần tài sản
+        document.getElementById('asset_type').addEventListener('change', function() {
+            document.getElementById('asset_detail_section').style.display = (this.value === 'Không có tài sản') ? 'none' : 'block';
         });
-    }
-</script>
+
+        // 4. Gửi dữ liệu (Cần link Google Apps Script)
+        const scriptURL = 'THAY_LINK_WEB_APP_CỦA_BẠN_VÀO_ĐÂY';
+        const form = document.getElementById('appraisalForm');
+
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            alert('Đang xử lý dữ liệu và hình ảnh... Vui lòng đợi.');
+            
+            const formData = new FormData(form);
+            // Ở đây bạn cần viết thêm logic chuyển ảnh sang Base64 nếu muốn lưu trực tiếp qua Apps Script
+            // Hoặc gửi link ảnh sau khi upload lên Drive.
+            
+            fetch(scriptURL, { method: 'POST', body: formData})
+                .then(response => alert('Thành công! Dữ liệu đã được lưu vào Google Sheets.'))
+                .catch(error => console.error('Lỗi!', error.message));
+        });
+    </script>
 </body>
 </html>
